@@ -42,7 +42,7 @@ module FSM (input logic clk,
         // state register
         always_ff @(posedge clk, posedge reset)
             if (reset) state <= scanR0;
-            state <= nextstate;
+            else state <= nextstate;
 
         // next state logic
         always_comb begin 
@@ -114,31 +114,31 @@ module FSM (input logic clk,
         always_comb begin
             case (state)
             //scanning states
-                scanR0: out = 5'b10000; row = 4'b0001;
-                scanR0: out = 5'b10000; row = 4'b0010;
-                scanR0: out = 5'b10000; row = 4'b0100;
-                scanR0: out = 5'b10000; row = 4'b1000;
+                scanR0: begin out = 5'b10000; row = 4'b0001; end
+                scanR0: begin out = 5'b10000; row = 4'b0010; end
+                scanR0: begin out = 5'b10000; row = 4'b0100; end
+                scanR0: begin out = 5'b10000; row = 4'b1000; end
             // pressed states
             //row 0
-                pressA: out = 5'b01010; row = 4'b0001;
-                press0: out = 5'b00000; row = 4'b0001;
-                pressB: out = 5'b01011; row = 4'b0001;
-                pressF: out = 5'b01111; row = 4'b0001;
+                pressA: begin out = 5'b01010; row = 4'b0001; end
+                press0: begin out = 5'b00000; row = 4'b0001; end
+                pressB: begin out = 5'b01011; row = 4'b0001; end
+                pressF: begin out = 5'b01111; row = 4'b0001; end
             //row 1
-                press7: out = 5'b00111; row = 4'b0010;
-                press8: out = 5'b01000; row = 4'b0010;
-                press9: out = 5'b01001; row = 4'b0010;
-                pressE: out = 5'b01110; row = 4'b0010;
+                press7: begin out = 5'b00111; row = 4'b0010; end
+                press8: begin out = 5'b01000; row = 4'b0010; end
+                press9: begin out = 5'b01001; row = 4'b0010; end
+                pressE: begin out = 5'b01110; row = 4'b0010; end
             //row 2
-                press4: out = 5'b00100; row = 4'b0100;
-                press5: out = 5'b00101; row = 4'b0100;
-                press6: out = 5'b00110; row = 4'b0100;
-                pressD: out = 5'b01101; row = 4'b0100;
+                press4: begin out = 5'b00100; row = 4'b0100; end
+                press5: begin out = 5'b00101; row = 4'b0100; end
+                press6: begin out = 5'b00110; row = 4'b0100; end
+                pressD: begin out = 5'b01101; row = 4'b0100; end
             //row 3
-                press1: out = 5'b00001; row = 4'b1000;
-                press2: out = 5'b00010; row = 4'b1000;
-                press3: out = 5'b00011; row = 4'b1000;
-                pressC: out = 5'b01100; row = 4'b1000;
+                press1: begin out = 5'b00001; row = 4'b1000; end
+                press2: begin out = 5'b00010; row = 4'b1000; end
+                press3: begin out = 5'b00011; row = 4'b1000; end
+                pressC: begin out = 5'b01100; row = 4'b1000; end
         
             endcase
         end
@@ -158,22 +158,26 @@ module debouncer (input logic clk,
             logic [23:0] counter;
 
             always_ff @(posedge clk, posedge reset)
-                if (reset): begin
+                if (reset) begin
                             s1 <= 4'b000;
                             s2 <= 4'b000;
                             counter <= 0;
                             lastOut <= 5'b10000;
                 end
-
-                if  (out == 5'b10000) counter <= 0;
-                else if (out == lastOut) counter <= counter + 1;
-                else lastOut <= out;
-
-                if (counter == threshold): begin 
-                    s1 <= s2;
-                    s2 <= out;
-                    counter <= counter;
-                    lastOut <= out;
-                end
+				// perform checks to see if the output is good enough to display
+				else begin
+					// check what the output is
+					if  (out == 5'b10000) counter <= 0;
+					else if (out == lastOut) counter <= counter + 1;
+					else lastOut <= out;
+						
+					// check if it's been that long enough to update display
+					if (counter == threshold) begin 
+						s1 <= s2;
+						s2 <= out;
+						counter <= counter;
+						lastOut <= out;
+					end
+				end
                 
 endmodule
