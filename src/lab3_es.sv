@@ -3,11 +3,30 @@
 This code reads a 4x4 matirx scanner and outputs to 2 seven-segment LED displays*/
 
 //top module, structural verilog
-module top (input logic C0, C1, C2, C3);
+module top (input logic [3:0] async_col,
+            output logic [3:0] row,
+            output logic [6:0] seg,
+            output logic anode1_en, anode2_en);
+
+            oscillator myOsc (clk);
+            synchronizer mySync (clk, async_col, col);
 
 endmodule
 
-// finits state machine to control scanning
+// synchronizer reduces chances of invalid logic level from async button presses
+module synchronizer(input logic clk,
+                    input logic [3:0] d,
+                    output logic [3:0] q);
+
+        logic n1;
+        always_ff @(posedge clk)
+            begin
+                n1 <= d;
+                q <= n1;
+            end
+endmodule
+
+// finite state machine to control scanning
 module FSM (input logic clk,
             input logic reset,
             input logic [3:0] col,
@@ -86,7 +105,7 @@ module FSM (input logic clk,
                 press2: if (col[1] == 0) nextstate = scanR3; else nextstate = press2;
                 press3: if (col[2] == 0) nextstate = scanR3; else nextstate = press3;
                 pressC: if (col[3] == 0) nextstate = scanR3; else nextstate = pressC;
-                
+
             endcase
         end
 
@@ -125,4 +144,36 @@ module FSM (input logic clk,
         end
 
 
+endmodule
+
+// debouncer handles if output changes rapidly
+module debouncer (input logic clk,
+                input logic reset,
+                input logic [4:0] out,
+                output logic [3:0] s1,
+                output logic [3:0] s2);
+
+            logic threshold = 2'd10; //num of cycles we want to maintain before a press counts
+            logic [4:0] lastOut;
+            logic [23:0] counter;
+
+            always_ff @(posedge clk, posedge reset)
+                if (reset): begin
+                            s1 <= 4'b000;
+                            s2 <= 4'b000;
+                            counter <= 0;
+                            lastOut <= 5'b10000;
+                end
+
+                if  (out == 5'b10000) counter <= 0;
+                else if (out == lastOut) counter <= counter + 1;
+                else lastOut <= out;
+
+                if (counter == threshold): begin 
+                    s1 <= s2;
+                    s2 <= out;
+                    counter <= counter;
+                    lastOut <= out;
+                end
+                
 endmodule
