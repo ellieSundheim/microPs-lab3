@@ -51,8 +51,62 @@ module test_FSM();
     // watch it go through at least one loop
     #10;
 
-    //press A
-    col = 4'b0001; #50;
+    //trigger column, wait, trigger different column
+    col = 4'b0001; #30; col = 4'b0000; #30; col = 4'b0010;
+    end
+
+endmodule
+
+module test_sync();
+    logic clk, reset;
+    logic [3:0] d;
+    logic [3:0] q;
+
+    synchronizer mySync (clk, reset, d, q);
+
+    always begin
+    clk = 0; #5;
+    clk = 1; #5;
+    end
+
+    //pulse reset
+    initial begin
+    reset = 0; #7; reset = 1; #14; reset = 0;
+
+    // apply d 
+    d = 4'b0001; #10; 
+    d = 4'b0010; #20;
+    end
+
+endmodule
+
+module test_all();
+    logic clk, reset;
+    logic [3:0] async_col, col;
+    logic [4:0] out;
+    logic [3:0] row;
+
+    FSM myTestFSM (clk, reset, col, out, row);
+    synchronizer myTestSync (clk, reset, async_col, col);
+
+    always begin
+    clk = 0; #5;
+    clk = 1; #5;
+    end
+
+    initial begin
+
+    // col always has some value and it's not xxxx so might as well be 0
+    async_col = 4'b0000;
+
+    //pulse reset
+    reset = 0; #7; reset = 1; #24; reset = 0; 
+
+    // watch it go through at least one loop
+    #10;
+
+    //trigger column, wait, trigger different column
+    async_col = 4'b0001; #31; async_col = 4'b0000; #27; async_col = 4'b0010;
     end
 
 endmodule

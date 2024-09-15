@@ -8,26 +8,38 @@ module top (input logic [3:0] async_col,
             output logic [6:0] seg,
             output logic anode1_en, anode2_en);
 
+            logic [3:0] col;
+            logic reset;
+            logic [4:0] out;
+
             oscillator myOsc (clk);
             synchronizer mySync (clk, async_col, col);
+            scanner_FSM myFSM (clk, reset, col, out, row);
+            debouncer myDebounce (clk, reset, out, s1, s2);
+
 
 endmodule
 
 // synchronizer reduces chances of invalid logic level from async button presses
 module synchronizer(input logic clk,
+                    input logic reset,
                     input logic [3:0] d,
                     output logic [3:0] q);
 
-        logic n1;
-        always_ff @(posedge clk)
-            begin
+        logic [3:0] n1;
+        always_ff @(posedge clk, posedge reset)
+            if (reset) begin
+                n1 <= 4'b0;
+                q <= 4'b0;
+            end
+            else begin
                 n1 <= d;
                 q <= n1;
             end
 endmodule
 
 // finite state machine to control scanning
-module FSM (input logic clk,
+module scanner_FSM (input logic clk,
             input logic reset,
             input logic [3:0] col,
             output logic [4:0] out,
@@ -36,7 +48,7 @@ module FSM (input logic clk,
         typedef enum logic [4:0] {scanR0, pressA, press0, pressB, pressF, 
                                 scanR1, press7, press8, press9, pressE,
                                 scanR2, press4, press5, press6, pressD,
-                                scanR3, press1, press2, press3, pressC  } statetype;
+                                scanR3, press1, press2, press3, pressC, error  } statetype;
         statetype state, nextstate;
 
         // state register
@@ -92,7 +104,7 @@ module FSM (input logic clk,
                 press7: if (col[0] == 0) nextstate = scanR1; else nextstate = press7;
                 press8: if (col[1] == 0) nextstate = scanR1; else nextstate = press8;
                 press9: if (col[2] == 0) nextstate = scanR1; else nextstate = press9;
-                pressE: if (col[3] == 0) nextstate = scanR1; else nextstate = press0;
+                pressE: if (col[3] == 0) nextstate = scanR1; else nextstate = pressE;
 
                 //row 2
                 press4: if (col[0] == 0) nextstate = scanR2; else nextstate = press4;
@@ -105,7 +117,7 @@ module FSM (input logic clk,
                 press2: if (col[1] == 0) nextstate = scanR3; else nextstate = press2;
                 press3: if (col[2] == 0) nextstate = scanR3; else nextstate = press3;
                 pressC: if (col[3] == 0) nextstate = scanR3; else nextstate = pressC;
-
+                default: nextstate = error;
             endcase
         end
 
@@ -139,7 +151,7 @@ module FSM (input logic clk,
                 press2: begin out = 5'b00010; row = 4'b1000; end
                 press3: begin out = 5'b00011; row = 4'b1000; end
                 pressC: begin out = 5'b01100; row = 4'b1000; end
-        
+				default: begin out = 5'bxxxxx; row = 4'bxxxx; end
             endcase
         end
 
@@ -175,7 +187,7 @@ module debouncer (input logic clk,
                         s2 <= s2;
                         real_press <= 0;
                     end
-                    // we know for sure that a button is being intentionally pressed
+                    // we know for sure that a button is being intentionally pressed (keeps us from repeatedly cycling input)
                     else if (real_press) begin
                         counter <= counter;
                         s1 <= s1;
@@ -206,7 +218,89 @@ module debouncer (input logic clk,
                         s2 <= s2;
                         real_press <= 0;
                     end
+
                     //always update the last value of out that we saw
 					lastOut <= out;
                 end
+endmodule
+
+// apparently humans can see flicker below 90Hz
+// switching time of electronics is limited by ??
+// to cut from 24 Mhz to 90 Hz, divide by 2^18 (roughly)
+module display_muxer #(parameter NUM_CYCLES_ON_EXP = 18) //NUM_CYCLES_ON_EXP sets the number of clk cycles (2^N) that each side of the display is on for
+                    (input logic clk,
+					 input logic reset,
+                     input logic [3:0] s1,s2,
+                     output logic anode1_en, anode2_en,
+                     output logic [3:0] sshow);
+
+    logic [NUM_CYCLES_ON_EXP-1:0] counter;
+
+    always_ff @(posedge clk, posedge reset)
+		if (reset) counter <= 0;
+        	else counter <= counter + 1;
+
+    assign anode1_en = counter[NUM_CYCLES_ON_EXP-1];
+	assign anode2_en = ~anode1_en;
+    mux displayMux(anode1_en, s1, s2, sshow);
+
+endmodule
+
+//arbitrary width mux, defaults to 4
+module mux #(parameter WIDTH = 4)
+            (input logic select,
+            input logic [WIDTH-1:0] s0, s1,
+            output logic [WIDTH-1:0] out);
+
+            always_comb
+            case (select)
+                1'b0: out = s0;
+                1'b1: out = s1;
+                default: out = 1'bx;
+            endcase
+endmodule
+
+// internal oscillator
+module oscillator(output logic clk);
+
+	logic int_osc;
+  
+	// Internal high-speed oscillator (div 2'b01 makes it oscillate at 24Mhz)
+	HSOSC #(.CLKHF_DIV(2'b01)) 
+         hf_osc (.CLKHFPU(1'b1), .CLKHFEN(1'b1), .CLKHF(int_osc));
+
+    assign clk = int_osc;
+  
+endmodule
+
+// combinational logic for seven segment display
+module seven_seg_disp(input logic[3:0] s,
+					  output logic[6:0] seg);
+	always_comb
+	begin
+		case(s[3:0])
+			// select which segments need to light up based on which hex munber is input (seg = 7'b 6543210)
+			4'b0000: seg = 7'b0111111;
+			4'b0001: seg = 7'b0000110;
+			4'b0010: seg = 7'b1011011;
+			4'b0011: seg = 7'b1001111;
+			4'b0100: seg = 7'b1100110;
+			4'b0101: seg = 7'b1101101;
+			4'b0110: seg = 7'b1111101;
+			4'b0111: seg = 7'b0000111;
+			
+			4'b1000: seg = 7'b1111111;
+			4'b1001: seg = 7'b1100111;
+			4'b1010: seg = 7'b1110111;
+			4'b1011: seg = 7'b1111100;
+			4'b1100: seg = 7'b1011000;
+			4'b1101: seg = 7'b1011110;
+			4'b1110: seg = 7'b1111001;
+			4'b1111: seg = 7'b1110001;
+			default: seg = 7'b0000000;
+		endcase
+		//flip the bits because segment leds are actually active low
+		seg = ~seg;
+	end 
+
 endmodule
