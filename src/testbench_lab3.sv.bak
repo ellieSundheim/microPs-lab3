@@ -25,34 +25,9 @@ module test_debouncer();
     reset = 0; #7; reset = 1; #24; reset = 0;
 
     //an nice clean output
-    out = 5'b00100; # 30; out = 5'b10000; #30; out = 5'b01110; #30;
+    out = 5'b00100; # 30; out = 5'b10000; #10; out = 5'b01110; #10;
 
     //a gross bouncy output
     out = 5'b00001; #2; out = 5'b10000; #3; out = 5'b00001; #4; out = 5'b10000; #5; out = 5'b00001; #20;
     end
-endmodule
-
-module test_FSM();
-    logic clk, reset;
-    logic [3:0] col;
-    logic [4:0] out;
-    logic [3:0] row;
-
-    FSM myFSM (clk, reset, col, out, row);
-    always begin
-    clk = 0; #5;
-    clk = 1; #5;
-    end
-
-    //pulse reset
-    initial begin
-    reset = 0; #7; reset = 1; #24; reset = 0;
-
-    // watch it go through at least one loop
-    #10;
-
-    //press A
-    col = 4'b0001; #50;
-    end
-
 endmodule

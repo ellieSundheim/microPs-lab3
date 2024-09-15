@@ -203,7 +203,7 @@ module debouncer (input logic clk,
                     else begin 
                         counter <= 0;
                         s1 <= s1;
-                        s2 <= s2;
+                        s2 <s2;
                         real_press <= 0;
                     end
                     //always update the last value of out that we saw
