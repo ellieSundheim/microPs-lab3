@@ -38,7 +38,7 @@ module test_FSM();
     logic [4:0] out;
     logic [3:0] row;
 
-    FSM myFSM (clk, reset, col, out, row);
+    scanner_FSM myFSM (clk, reset, col, out, row);
     always begin
     clk = 0; #5;
     clk = 1; #5;
@@ -52,7 +52,7 @@ module test_FSM();
     #10;
 
     //trigger column, wait, trigger different column
-    col = 4'b0001; #30; col = 4'b0000; #30; col = 4'b0010;
+    col = 4'b0001; #30; col = 4'b0000; #20; col = 4'b0010;
     end
 
 endmodule
@@ -86,7 +86,7 @@ module test_all();
     logic [4:0] out;
     logic [3:0] row;
 
-    FSM myTestFSM (clk, reset, col, out, row);
+    scanner_FSM myTestFSM (clk, reset, col, out, row);
     synchronizer myTestSync (clk, reset, async_col, col);
 
     always begin
@@ -100,13 +100,16 @@ module test_all();
     async_col = 4'b0000;
 
     //pulse reset
-    reset = 0; #7; reset = 1; #24; reset = 0; 
+    reset = 0; #7; reset = 1; #14; reset = 0; 
 
     // watch it go through at least one loop
     #10;
 
     //trigger column, wait, trigger different column
-    async_col = 4'b0001; #31; async_col = 4'b0000; #27; async_col = 4'b0010;
+    async_col = 4'b0001; #30; async_col = 4'b0000; #20; async_col = 4'b0010; #20; 
+
+    // test other inputs at same time
+    async_col = 4'b0111; #20; async_col = 4'b0000; #20;
     end
 
 endmodule

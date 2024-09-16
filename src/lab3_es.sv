@@ -11,12 +11,14 @@ module top (input logic [3:0] async_col,
             logic [3:0] col;
             logic reset;
             logic [4:0] out;
+			logic [3:0] sshow;
 
             oscillator myOsc (clk);
-            synchronizer mySync (clk, async_col, col);
+            synchronizer mySync (clk, reset, async_col, col);
             scanner_FSM myFSM (clk, reset, col, out, row);
             debouncer myDebounce (clk, reset, out, s1, s2);
-
+			display_muxer #(16) myDisplayMuxer(clk, reset, s1, s2, anode1_en, anode2_en, sshow);
+			seven_seg_disp mySevenSegDisp(sshow, seg);
 
 endmodule
 
@@ -60,36 +62,36 @@ module scanner_FSM (input logic clk,
         always_comb begin 
             case (state)
             //scanning states
-                scanR0: 
-                    case (col)
-                        4'b0001: nextstate = pressA;
-                        4'b0010: nextstate = press0;
-                        4'b0100: nextstate = pressB;
-                        4'b1000: nextstate = pressF;
-                        default: nextstate = scanR1;
-                    endcase
-                scanR1:
-                    case (col)
-                        4'b0001: nextstate = press7;
-                        4'b0010: nextstate = press8;
-                        4'b0100: nextstate = press9;
-                        4'b1000: nextstate = pressE;
-                        default: nextstate = scanR2;
-                    endcase
-                scanR2:
+                scanR0: //pulse R0, read R2
                     case (col)
                         4'b0001: nextstate = press4;
                         4'b0010: nextstate = press5;
                         4'b0100: nextstate = press6;
                         4'b1000: nextstate = pressD;
-                        default: nextstate = scanR3;
+                        default: nextstate = scanR1;
                     endcase
-                scanR3: 
+                scanR1: //pulse R1, read R3
                     case (col)
                         4'b0001: nextstate = press1;
                         4'b0010: nextstate = press2;
                         4'b0100: nextstate = press3;
                         4'b1000: nextstate = pressC;
+                        default: nextstate = scanR2;
+                    endcase
+                scanR2: //pulse R2, read R0
+                    case (col)
+                        4'b0001: nextstate = pressA;
+                        4'b0010: nextstate = press0;
+                        4'b0100: nextstate = pressB;
+                        4'b1000: nextstate = pressF;
+                        default: nextstate = scanR3;
+                    endcase
+                scanR3: //pulse R3, read R1
+                    case (col)
+                        4'b0001: nextstate = press7;
+                        4'b0010: nextstate = press8;
+                        4'b0100: nextstate = press9;
+                        4'b1000: nextstate = pressE;
                         default: nextstate = scanR0;
                     endcase
 
@@ -127,31 +129,33 @@ module scanner_FSM (input logic clk,
             case (state)
             //scanning states
                 scanR0: begin out = 5'b10000; row = 4'b0001; end
-                scanR0: begin out = 5'b10000; row = 4'b0010; end
-                scanR0: begin out = 5'b10000; row = 4'b0100; end
-                scanR0: begin out = 5'b10000; row = 4'b1000; end
+                scanR1: begin out = 5'b10000; row = 4'b0010; end
+                scanR2: begin out = 5'b10000; row = 4'b0100; end
+                scanR3: begin out = 5'b10000; row = 4'b1000; end
             // pressed states
             //row 0
-                pressA: begin out = 5'b01010; row = 4'b0001; end
-                press0: begin out = 5'b00000; row = 4'b0001; end
-                pressB: begin out = 5'b01011; row = 4'b0001; end
-                pressF: begin out = 5'b01111; row = 4'b0001; end
+                pressA: begin out = 5'b01010; row = 4'b0100; end
+                press0: begin out = 5'b00000; row = 4'b0100; end
+                pressB: begin out = 5'b01011; row = 4'b0100; end
+                pressF: begin out = 5'b01111; row = 4'b0100; end
             //row 1
-                press7: begin out = 5'b00111; row = 4'b0010; end
-                press8: begin out = 5'b01000; row = 4'b0010; end
-                press9: begin out = 5'b01001; row = 4'b0010; end
-                pressE: begin out = 5'b01110; row = 4'b0010; end
+                press7: begin out = 5'b00111; row = 4'b1000; end
+                press8: begin out = 5'b01000; row = 4'b1000; end
+                press9: begin out = 5'b01001; row = 4'b1000; end
+                pressE: begin out = 5'b01110; row = 4'b1000; end
             //row 2
-                press4: begin out = 5'b00100; row = 4'b0100; end
-                press5: begin out = 5'b00101; row = 4'b0100; end
-                press6: begin out = 5'b00110; row = 4'b0100; end
-                pressD: begin out = 5'b01101; row = 4'b0100; end
+                press4: begin out = 5'b00100; row = 4'b0001; end
+                press5: begin out = 5'b00101; row = 4'b0001; end
+                press6: begin out = 5'b00110; row = 4'b0001; end
+                pressD: begin out = 5'b01101; row = 4'b0001; end
             //row 3
-                press1: begin out = 5'b00001; row = 4'b1000; end
-                press2: begin out = 5'b00010; row = 4'b1000; end
-                press3: begin out = 5'b00011; row = 4'b1000; end
-                pressC: begin out = 5'b01100; row = 4'b1000; end
-				default: begin out = 5'bxxxxx; row = 4'bxxxx; end
+                press1: begin out = 5'b00001; row = 4'b0010; end
+                press2: begin out = 5'b00010; row = 4'b0010; end
+                press3: begin out = 5'b00011; row = 4'b0010; end
+                pressC: begin out = 5'b01100; row = 4'b0010; end
+
+                error: begin out = 5'bxxxxx; row = 4'bxxxx; end
+		default: begin out = 5'bxxxxx; row = 4'bxxxx; end
             endcase
         end
 
@@ -165,7 +169,7 @@ module debouncer (input logic clk,
                 output logic [3:0] s1,
                 output logic [3:0] s2);
 
-            logic threshold = 2'd10; //num of cycles we want to maintain before a press counts
+            logic [23:0] threshold = 2'd10; //num of cycles we want to maintain before a press counts
             logic real_press;
             logic [4:0] lastOut;
             logic [23:0] counter;
