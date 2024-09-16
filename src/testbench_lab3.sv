@@ -116,7 +116,7 @@ endmodule
 
 module test_top();
         logic clk;
-        logic reset;
+        logic nreset, reset;
         logic [3:0] async_col, col;
         logic [3:0] row;
         logic [4:0] out;
@@ -124,7 +124,7 @@ module test_top();
 		logic [3:0] sshow;
         logic [6:0] seg;
 
-        top lab3_dut(clk, reset, async_col, row, seg, anode1_en, anode2_en );
+        top lab3_dut(clk, nreset, async_col, row, seg, anode1_en, anode2_en);
 
         always begin 
             clk = 1; #5;
@@ -137,7 +137,7 @@ module test_top();
         async_col = 4'b0000;
 
         //pulse reset
-        reset = 0; #7; reset = 1; #7; reset = 0; 
+        nreset = 1; #7; nreset = 0; #7; nreset = 1; 
 
         // watch it go through at least one loop
         #10;
