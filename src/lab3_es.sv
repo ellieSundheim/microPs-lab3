@@ -3,20 +3,21 @@
 This code reads a 4x4 matrix scanner and outputs to 2 seven-segment LED displays*/
 
 //top module, structural verilog
-module top (input logic clk,
-            input logic reset,
+module top (
+            input logic nreset,
             input logic [3:0] async_col,
             output logic [3:0] row,
             output logic [6:0] seg,
             output logic anode1_en, anode2_en);
-
-
+		
+			logic reset;
+			assign reset = ~nreset;
             logic [3:0] col;
             logic [4:0] out;
             logic [3:0] s1, s2;
 			logic [3:0] sshow;
 
-            //oscillator myOsc (clk);
+            oscillator myOsc (clk);
             synchronizer mySync (clk, reset, async_col, col);
             scanner_FSM myFSM (clk, reset, col, out, row);
             debouncer myDebounce (clk, reset, out, s1, s2);
@@ -66,35 +67,35 @@ module scanner_FSM (input logic clk,
             case (state)
             //scanning states
                 scanR0: //pulse R0, read R2
-                    case (col)
-                        4'b0001: nextstate = press4;
-                        4'b0010: nextstate = press5;
-                        4'b0100: nextstate = press6;
-                        4'b1000: nextstate = pressD;
+                    casez (col)
+                        4'b???1: nextstate = press4;
+                        4'b??1?: nextstate = press5;
+                        4'b?1??: nextstate = press6;
+                        4'b1???: nextstate = pressD;
                         default: nextstate = scanR1;
                     endcase
                 scanR1: //pulse R1, read R3
-                    case (col)
-                        4'b0001: nextstate = press1;
-                        4'b0010: nextstate = press2;
-                        4'b0100: nextstate = press3;
-                        4'b1000: nextstate = pressC;
+                    casez (col)
+                        4'b???1: nextstate = press1;
+                        4'b??1?: nextstate = press2;
+                        4'b?1??: nextstate = press3;
+                        4'b1???: nextstate = pressC;
                         default: nextstate = scanR2;
                     endcase
                 scanR2: //pulse R2, read R0
-                    case (col)
-                        4'b0001: nextstate = pressA;
-                        4'b0010: nextstate = press0;
-                        4'b0100: nextstate = pressB;
-                        4'b1000: nextstate = pressF;
+                    casez (col)
+                        4'b???1: nextstate = pressA;
+                        4'b??1?: nextstate = press0;
+                        4'b?1??: nextstate = pressB;
+                        4'b1???: nextstate = pressF;
                         default: nextstate = scanR3;
                     endcase
                 scanR3: //pulse R3, read R1
-                    case (col)
-                        4'b0001: nextstate = press7;
-                        4'b0010: nextstate = press8;
-                        4'b0100: nextstate = press9;
-                        4'b1000: nextstate = pressE;
+                    casez (col)
+                        4'b???1: nextstate = press7;
+                        4'b??1?: nextstate = press8;
+                        4'b?1??: nextstate = press9;
+                        4'b1???: nextstate = pressE;
                         default: nextstate = scanR0;
                     endcase
 
@@ -304,7 +305,7 @@ module seven_seg_disp(input logic[3:0] s,
 			4'b1101: seg = 7'b1011110;
 			4'b1110: seg = 7'b1111001;
 			4'b1111: seg = 7'b1110001;
-			default: seg = 7'b0000000;
+			default: seg = 7'b0000001;
 		endcase
 		//flip the bits because segment leds are actually active low
 		seg = ~seg;
