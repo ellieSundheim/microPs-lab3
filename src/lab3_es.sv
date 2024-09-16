@@ -1,19 +1,22 @@
 /* Ellie Sundheim (esundheim@hmc.edu)
 9/14/24
-This code reads a 4x4 matirx scanner and outputs to 2 seven-segment LED displays*/
+This code reads a 4x4 matrix scanner and outputs to 2 seven-segment LED displays*/
 
 //top module, structural verilog
-module top (input logic [3:0] async_col,
+module top (input logic clk,
+            input logic reset,
+            input logic [3:0] async_col,
             output logic [3:0] row,
             output logic [6:0] seg,
             output logic anode1_en, anode2_en);
 
+
             logic [3:0] col;
-            logic reset;
             logic [4:0] out;
+            logic [3:0] s1, s2;
 			logic [3:0] sshow;
 
-            oscillator myOsc (clk);
+            //oscillator myOsc (clk);
             synchronizer mySync (clk, reset, async_col, col);
             scanner_FSM myFSM (clk, reset, col, out, row);
             debouncer myDebounce (clk, reset, out, s1, s2);
@@ -169,15 +172,15 @@ module debouncer (input logic clk,
                 output logic [3:0] s1,
                 output logic [3:0] s2);
 
-            logic [23:0] threshold = 2'd10; //num of cycles we want to maintain before a press counts
+            logic [23:0] threshold = 24'd3; //num of cycles we want to maintain before a press counts
             logic real_press;
             logic [4:0] lastOut;
             logic [23:0] counter;
 
             always_ff @(posedge clk, posedge reset)
                 if (reset) begin
-                            s1 <= 4'b000;
-                            s2 <= 4'b000;
+                            s1 <= 4'b0000;
+                            s2 <= 4'b0000;
                             counter <= 0;
                             lastOut <= 5'b10000;
                             real_press <= 0;
@@ -207,10 +210,10 @@ module debouncer (input logic clk,
                             s2 <= s2;
                             real_press <= 0;
                         end
-                        else begin //counter is at threshold
+                        else begin //counter is at threshold (we should only hit this once because after it get caught above by real press block)
                             counter <= counter;
                             s1 <= s2;
-                            s2 <= out;
+                            s2 <= out[3:0];
                             real_press <= 1;
                         end
                     end
