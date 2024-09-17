@@ -13,35 +13,35 @@ module top (
 			logic reset;
 			assign reset = ~nreset;
             logic clk;
-            logic enable;
             logic [3:0] col;
             logic [4:0] out;
             logic [3:0] s1, s2;
 			logic [3:0] sshow;
 
             oscillator myOsc (clk); //24 MHz
-            synchronizer mySync (clk, reset, async_col, col); //div cuts by 2^15 
-            scanner_FSM myFSM (clk, reset, col, out, row);
-            debouncer myDebounce (clk, reset, out, s1, s2);
+            synchronizer #(0) mySync (clk, reset, async_col, col); //div cuts by 2^15 
+            scanner_FSM #(0) myFSM (clk, reset, col, out, row);
+            debouncer  #(0) myDebounce(clk, reset, out, s1, s2);
 			display_muxer #(16) myDisplayMuxer(clk, reset, s1, s2, anode1_en, anode2_en, sshow);
 			seven_seg_disp mySevenSegDisp(sshow, seg);
 
 endmodule
 
 // synchronizer reduces chances of invalid logic level from async button presses
-module synchronizer(input logic clk,
+module synchronizer #(parameter SLOWDOWN_EXP = 0)
+					(input logic clk,
                     input logic reset,
                     input logic [3:0] d,
                     output logic [3:0] q);
 
         logic [3:0] n1;
-        logic [14:0] counter;
+        logic [SLOWDOWN_EXP:0] counter;
         logic enable;
 
         always_ff @(posedge clk)
             if (reset) counter <= 0;
             else counter <= counter + 1;
-        assign enable = counter[14];
+        assign enable = counter[SLOWDOWN_EXP];
 
         always_ff @(posedge clk)
             if (reset) begin
@@ -56,7 +56,8 @@ module synchronizer(input logic clk,
 endmodule
 
 // finite state machine to control scanning
-module scanner_FSM (input logic clk,
+module scanner_FSM #(parameter SLOWDOWN_EXP = 0)
+			(input logic clk,
             input logic reset,
             input logic [3:0] col,
             output logic [4:0] out,
@@ -69,13 +70,13 @@ module scanner_FSM (input logic clk,
         statetype state, nextstate;
 
         // clock divider
-        logic [14:0] counter;
+        logic [SLOWDOWN_EXP:0] counter;
         logic enable;
 
         always_ff @(posedge clk)
             if (reset) counter <= 0;
             else counter <= counter + 1;
-        assign enable = counter[14];
+        assign enable = counter[SLOWDOWN_EXP];
 
         // state register
         always_ff @(posedge clk)
@@ -187,7 +188,8 @@ module scanner_FSM (input logic clk,
 endmodule
 
 // debouncer handles if output changes rapidly
-module debouncer (input logic clk,
+module debouncer #(parameter SLOWDOWN_EXP = 0)
+				(input logic clk,
                 input logic reset,
                 input logic [4:0] out,
                 output logic [3:0] s1,
@@ -196,15 +198,15 @@ module debouncer (input logic clk,
 
 
             //clock divider
-            logic [14:0] divcounter;
+            logic [SLOWDOWN_EXP:0] divcounter;
             logic enable;
 
             always_ff @(posedge clk)
                 if (reset) divcounter <= 0;
                 else divcounter <= divcounter + 1;
-            assign enable = divcounter[14];
+            assign enable = divcounter[SLOWDOWN_EXP];
 
-            parameter [23:0] threshold = 24'd50; //num of cycles we want to maintain before a press counts
+            logic [23:0] threshold = 24'd10; //num of cycles we want to maintain before a press counts
             logic real_press;
             logic [4:0] lastOut;
             logic [23:0] counter;
