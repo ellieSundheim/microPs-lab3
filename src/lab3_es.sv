@@ -3,7 +3,7 @@
 This code reads a 4x4 matrix scanner and outputs to 2 seven-segment LED displays*/
 
 //top module, structural verilog
-module top (
+module top (input logic clk,
             input logic nreset,
             input logic [3:0] async_col,
             output logic [3:0] row,
@@ -12,16 +12,16 @@ module top (
 		
 			logic reset;
 			assign reset = ~nreset;
-            logic clk;
+            //logic clk;
             logic [3:0] col;
             logic [4:0] out;
             logic [3:0] s1, s2;
 			logic [3:0] sshow;
 
-            oscillator myOsc (clk); //24 MHz
-            synchronizer #(0) mySync (clk, reset, async_col, col); //div cuts by 2^15 
-            scanner_FSM #(0) myFSM (clk, reset, col, out, row);
-            debouncer  #(0) myDebounce(clk, reset, out, s1, s2);
+            //oscillator myOsc (clk); //24 MHz
+            synchronizer #(20) mySync (clk, reset, async_col, col); //div cuts by 2^15 
+            scanner_FSM #(20) myFSM (clk, reset, col, out, row);
+            debouncer  #(20) myDebounce(clk, reset, out, s1, s2);
 			display_muxer #(16) myDisplayMuxer(clk, reset, s1, s2, anode1_en, anode2_en, sshow);
 			seven_seg_disp mySevenSegDisp(sshow, seg);
 

@@ -4,7 +4,7 @@ This file contains the testbenches for the modules that make up lab3_es
 */
 
 // testbench settings
-`timescale 1ms/1ns
+`timescale 1ns/1ns
 `default_nettype none
 `define N_TV 8
 
@@ -127,8 +127,8 @@ module test_top();
         top lab3_dut(clk, nreset, async_col, row, seg, anode1_en, anode2_en);
 
         always begin 
-            clk = 1; #0.001;
-            clk = 0; #0.001;
+            clk = 1; #5;
+            clk = 0; #5;
         end
 
         initial begin
