@@ -115,21 +115,20 @@ module test_all();
 endmodule
 
 module test_top();
-        logic clk;
-        logic nreset, reset;
+        //logic clk;
+        logic nreset;
         logic [3:0] async_col, col;
         logic [3:0] row;
         logic [4:0] out;
         logic anode1_en, anode2_en;
-		logic [3:0] sshow;
         logic [6:0] seg;
 
-        top lab3_dut(clk, nreset, async_col, row, seg, anode1_en, anode2_en);
-
+        top lab3_dut( nreset, async_col, row, seg, anode1_en, anode2_en);
+/*
         always begin 
             clk = 1; #5;
             clk = 0; #5;
-        end
+        end*/
 
         initial begin
 
