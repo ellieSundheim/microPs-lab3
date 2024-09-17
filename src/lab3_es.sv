@@ -12,13 +12,15 @@ module top (
 		
 			logic reset;
 			assign reset = ~nreset;
+            logic clk;
+            logic enable;
             logic [3:0] col;
             logic [4:0] out;
             logic [3:0] s1, s2;
 			logic [3:0] sshow;
 
-            oscillator myOsc (clk);
-            synchronizer mySync (clk, reset, async_col, col);
+            oscillator myOsc (clk); //24 MHz
+            synchronizer mySync (clk, reset, async_col, col); //div cuts by 2^15 
             scanner_FSM myFSM (clk, reset, col, out, row);
             debouncer myDebounce (clk, reset, out, s1, s2);
 			display_muxer #(16) myDisplayMuxer(clk, reset, s1, s2, anode1_en, anode2_en, sshow);
@@ -33,15 +35,24 @@ module synchronizer(input logic clk,
                     output logic [3:0] q);
 
         logic [3:0] n1;
-        always_ff @(posedge clk, posedge reset)
+        logic [14:0] counter;
+        logic enable;
+
+        always_ff @(posedge clk)
+            if (reset) counter <= 0;
+            else counter <= counter + 1;
+        assign enable = counter[14];
+
+        always_ff @(posedge clk)
             if (reset) begin
                 n1 <= 4'b0;
                 q <= 4'b0;
             end
-            else begin
+            else if (enable) begin
                 n1 <= d;
                 q <= n1;
             end
+            // no else needed, will keep its value
 endmodule
 
 // finite state machine to control scanning
@@ -57,10 +68,19 @@ module scanner_FSM (input logic clk,
                                 scanR3, press1, press2, press3, pressC, error  } statetype;
         statetype state, nextstate;
 
+        // clock divider
+        logic [14:0] counter;
+        logic enable;
+
+        always_ff @(posedge clk)
+            if (reset) counter <= 0;
+            else counter <= counter + 1;
+        assign enable = counter[14];
+
         // state register
-        always_ff @(posedge clk, posedge reset)
+        always_ff @(posedge clk)
             if (reset) state <= scanR0;
-            else state <= nextstate;
+            else if (enable) state <= nextstate;
 
         // next state logic
         always_comb begin 
@@ -173,12 +193,23 @@ module debouncer (input logic clk,
                 output logic [3:0] s1,
                 output logic [3:0] s2);
 
-            logic [23:0] threshold = 24'd3; //num of cycles we want to maintain before a press counts
+
+
+            //clock divider
+            logic [14:0] divcounter;
+            logic enable;
+
+            always_ff @(posedge clk)
+                if (reset) divcounter <= 0;
+                else divcounter <= divcounter + 1;
+            assign enable = divcounter[14];
+
+            parameter [23:0] threshold = 24'd50; //num of cycles we want to maintain before a press counts
             logic real_press;
             logic [4:0] lastOut;
             logic [23:0] counter;
 
-            always_ff @(posedge clk, posedge reset)
+            always_ff @(posedge clk)
                 if (reset) begin
                             s1 <= 4'b0000;
                             s2 <= 4'b0000;
@@ -187,7 +218,7 @@ module debouncer (input logic clk,
                             real_press <= 0;
                 end
 				// perform checks to see if the output is good enough to display
-				else begin
+				else if (enable) begin
 					// no button is being pressed
 					if  (out == 5'b10000) begin
                         counter <= 0;
@@ -269,7 +300,7 @@ module mux #(parameter WIDTH = 4)
 endmodule
 
 // internal oscillator
-module oscillator(output logic clk);
+module oscillator (output logic clk);
 
 	logic int_osc;
   
@@ -277,8 +308,8 @@ module oscillator(output logic clk);
 	HSOSC #(.CLKHF_DIV(2'b01)) 
          hf_osc (.CLKHFPU(1'b1), .CLKHFEN(1'b1), .CLKHF(int_osc));
 
-    assign clk = int_osc;
-  
+	assign clk = int_osc;
+    
 endmodule
 
 // combinational logic for seven segment display
@@ -312,3 +343,4 @@ module seven_seg_disp(input logic[3:0] s,
 	end 
 
 endmodule
+

@@ -18,8 +18,8 @@
 				<BScanVal>0</BScanVal>
 			</Bypass>
 			<File>../../impl_1/radiant_project_lab3_impl_1.bin</File>
-			<FileTime>09/15/24 20:52:47</FileTime>
-			<JedecChecksum>0xAAB7</JedecChecksum>
+			<FileTime>09/16/24 17:35:46</FileTime>
+			<JedecChecksum>0x3016</JedecChecksum>
 			<MemoryType>External SPI Flash Memory (SPI FLASH)</MemoryType>
 			<Operation>Erase,Program,Verify</Operation>
 			<Option>
