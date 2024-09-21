@@ -8,7 +8,8 @@ module top (
             input logic [3:0] async_col,
             output logic [3:0] row,
             output logic [6:0] seg,
-            output logic anode1_en, anode2_en);
+            output logic anode1_en, anode2_en,
+			output logic stateMSB);
 		
 			logic reset;
 			assign reset = ~nreset;
@@ -19,12 +20,14 @@ module top (
             logic [3:0] s1, s2;
 			logic [3:0] sshow;
 
-            oscillator myOsc (clk); //24 MHz
+            oscillator myOsc (reset, clk); //24 MHz/2^8 = 93 kHz
             synchronizer  mySync (clk, reset, async_col, col); //div cuts by 2^15 
-            scanner_FSM_async  myFSM (clk, reset, async_col, out, row);
+            scanner_FSM  myFSM (clk, reset, col, out, row);
             debouncer  myDebounce(clk, reset, out, s1, s2);
-			display_muxer #(16) myDisplayMuxer(clk, reset, s1, s2, anode1_en, anode2_en, sshow);
+			display_muxer #(8) myDisplayMuxer(clk, reset, s1, s2, anode1_en, anode2_en, sshow);
 			seven_seg_disp mySevenSegDisp(sshow, seg);
+			
+			assign stateMSB = out[4];
 
 endmodule
 
@@ -51,7 +54,7 @@ module synchronizer #(parameter SLOWDOWN_EXP = 0)
 endmodule
 
 // finite state machine to control scanning
-module scanner_FSM #(parameter SLOWDOWN_EXP = 0)
+module scanner_FSM 
 			(input logic clk,
             input logic reset,
             input logic [3:0] col,
@@ -135,46 +138,45 @@ module scanner_FSM #(parameter SLOWDOWN_EXP = 0)
             endcase
         end
 
-
         // output logic
         always_comb begin
             case (state)
-            //scanning states
+            //scanning states 
                 scanR0: begin out = 5'b10000; row = 4'b0001; end
                 scanR1: begin out = 5'b10000; row = 4'b0010; end
                 scanR2: begin out = 5'b10000; row = 4'b0100; end
                 scanR3: begin out = 5'b10000; row = 4'b1000; end
-            // pressed states
+            // pressed states - match the physical rows
             //row 0
-                pressA: begin out = 5'b01010; row = 4'b0100; end
-                press0: begin out = 5'b00000; row = 4'b0100; end
-                pressB: begin out = 5'b01011; row = 4'b0100; end
-                pressF: begin out = 5'b01111; row = 4'b0100; end
+                pressA: begin out = 5'b01010; row = 4'b0001; end
+                press0: begin out = 5'b00000; row = 4'b0001; end
+                pressB: begin out = 5'b01011; row = 4'b0001; end
+                pressF: begin out = 5'b01111; row = 4'b0001; end
             //row 1
-                press7: begin out = 5'b00111; row = 4'b1000; end
-                press8: begin out = 5'b01000; row = 4'b1000; end
-                press9: begin out = 5'b01001; row = 4'b1000; end
-                pressE: begin out = 5'b01110; row = 4'b1000; end
+                press7: begin out = 5'b00111; row = 4'b0010; end
+                press8: begin out = 5'b01000; row = 4'b0010; end
+                press9: begin out = 5'b01001; row = 4'b0010; end
+                pressE: begin out = 5'b01110; row = 4'b0010; end
             //row 2
-                press4: begin out = 5'b00100; row = 4'b0001; end
-                press5: begin out = 5'b00101; row = 4'b0001; end
-                press6: begin out = 5'b00110; row = 4'b0001; end
-                pressD: begin out = 5'b01101; row = 4'b0001; end
+                press4: begin out = 5'b00100; row = 4'b0100; end
+                press5: begin out = 5'b00101; row = 4'b0100; end
+                press6: begin out = 5'b00110; row = 4'b0100; end
+                pressD: begin out = 5'b01101; row = 4'b0100; end
             //row 3
-                press1: begin out = 5'b00001; row = 4'b0010; end
-                press2: begin out = 5'b00010; row = 4'b0010; end
-                press3: begin out = 5'b00011; row = 4'b0010; end
-                pressC: begin out = 5'b01100; row = 4'b0010; end
+                press1: begin out = 5'b00001; row = 4'b1000; end
+                press2: begin out = 5'b00010; row = 4'b1000; end
+                press3: begin out = 5'b00011; row = 4'b1000; end
+                pressC: begin out = 5'b01100; row = 4'b1000; end
 
                 error: begin out = 5'bxxxxx; row = 4'bxxxx; end
-		default: begin out = 5'bxxxxx; row = 4'bxxxx; end
+				default: begin out = 5'bxxxxx; row = 4'bxxxx; end
             endcase
         end
 
 
 endmodule
 
-// finite state machine to control scanning
+// finite state machine to control scanning, but with real time inputs
 module scanner_FSM_async #(parameter SLOWDOWN_EXP = 0)
 			(input logic clk,
             input logic reset,
@@ -198,7 +200,7 @@ module scanner_FSM_async #(parameter SLOWDOWN_EXP = 0)
         always_comb begin 
             case (state)
             //scanning states
-                scanR0: //pulse R0, read R2
+                scanR0: //pulse R0, read R0
                     casez (col)
                         4'b???1: nextstate = pressA;
                         4'b??1?: nextstate = press0;
@@ -206,7 +208,7 @@ module scanner_FSM_async #(parameter SLOWDOWN_EXP = 0)
                         4'b1???: nextstate = pressF;
                         default: nextstate = scanR1;
                     endcase
-                scanR1: //pulse R1, read R3
+                scanR1: //pulse R1, read R1
                     casez (col)
                         4'b???1: nextstate = press7;
                         4'b??1?: nextstate = press8;
@@ -214,7 +216,7 @@ module scanner_FSM_async #(parameter SLOWDOWN_EXP = 0)
                         4'b1???: nextstate = pressE;
                         default: nextstate = scanR2;
                     endcase
-                scanR2: //pulse R2, read R0
+                scanR2: //pulse R2, read R2
                     casez (col)
                         4'b???1: nextstate = press4;
                         4'b??1?: nextstate = press5;
@@ -222,7 +224,7 @@ module scanner_FSM_async #(parameter SLOWDOWN_EXP = 0)
                         4'b1???: nextstate = pressD;
                         default: nextstate = scanR3;
                     endcase
-                scanR3: //pulse R3, read R1
+                scanR3: //pulse R3, read R3
                     casez (col)
                         4'b???1: nextstate = press1;
                         4'b??1?: nextstate = press2;
@@ -263,12 +265,12 @@ module scanner_FSM_async #(parameter SLOWDOWN_EXP = 0)
         // output logic
         always_comb begin
             case (state)
-            //scanning states
+            //scanning states 
                 scanR0: begin out = 5'b10000; row = 4'b0001; end
                 scanR1: begin out = 5'b10000; row = 4'b0010; end
                 scanR2: begin out = 5'b10000; row = 4'b0100; end
                 scanR3: begin out = 5'b10000; row = 4'b1000; end
-            // pressed states
+            // pressed states - match the physical rows
             //row 0
                 pressA: begin out = 5'b01010; row = 4'b0001; end
                 press0: begin out = 5'b00000; row = 4'b0001; end
@@ -291,7 +293,7 @@ module scanner_FSM_async #(parameter SLOWDOWN_EXP = 0)
                 pressC: begin out = 5'b01100; row = 4'b1000; end
 
                 error: begin out = 5'bxxxxx; row = 4'bxxxx; end
-		default: begin out = 5'bxxxxx; row = 4'bxxxx; end
+				default: begin out = 5'bxxxxx; row = 4'bxxxx; end
             endcase
         end
 
@@ -402,7 +404,7 @@ module mux #(parameter WIDTH = 4)
 endmodule
 
 // internal oscillator
-module oscillator (output logic clk);
+module oscillator (input logic reset, output logic clk);
 
 	logic int_osc;
   
@@ -410,7 +412,13 @@ module oscillator (output logic clk);
 	HSOSC #(.CLKHF_DIV(2'b01)) 
          hf_osc (.CLKHFPU(1'b1), .CLKHFEN(1'b1), .CLKHF(int_osc));
 
-	assign clk = int_osc;
+	logic [7:0] counter;
+	
+	always_ff @(posedge int_osc)
+		if (reset) counter <= 0;
+		else counter <= counter + 1;
+			
+	assign clk = counter[7];
     
 endmodule
 
